@@ -1,0 +1,8 @@
+{
+  "name": "JUA KAZI",
+  "description": "A WhatsApp-first local services marketplace for Kenya. Find plumbers, fundis, cleaners, and more instantly.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
