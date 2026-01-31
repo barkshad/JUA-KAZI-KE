@@ -1,10 +1,20 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Initialize with a helper to prevent crashes if the environment variable isn't set yet
+const getAIClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    console.warn("Gemini API Key is missing. AI features will be disabled.");
+    return null;
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 export const optimizeBio = async (currentBio: string, category: string): Promise<string> => {
   try {
+    const ai = getAIClient();
+    if (!ai) return currentBio;
+
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `You are a professional marketing copywriter for local Kenyan businesses. 
@@ -27,6 +37,9 @@ export const optimizeBio = async (currentBio: string, category: string): Promise
 
 export const generateSearchKeywords = async (query: string): Promise<string[]> => {
   try {
+    const ai = getAIClient();
+    if (!ai) return [];
+
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Generate a list of 5 relevant search terms or categories related to the query: "${query}". Return only a JSON array of strings.`,
@@ -41,6 +54,7 @@ export const generateSearchKeywords = async (query: string): Promise<string[]> =
 
     return JSON.parse(response.text || '[]');
   } catch (error) {
+    console.error("Search keyword generation error:", error);
     return [];
   }
 };
