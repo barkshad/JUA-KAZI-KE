@@ -30,6 +30,10 @@ export const firebaseService = {
     };
   },
 
+  getProviderByUserId: async (userId: string): Promise<Provider | undefined> => {
+    return providersStore.find(p => p.userId === userId);
+  },
+
   createAccount: async (data: { fullName: string; phoneNumber: string; email: string, password?: string }): Promise<User> => {
     const newUser: User = {
       id: 'u-' + Math.random().toString(36).substr(2, 9),
@@ -50,7 +54,6 @@ export const firebaseService = {
     const index = userStore.findIndex(u => u.id === userId);
     if (index === -1) throw new Error("Account not found");
     
-    // Updates to phone number here propagate to all Listings automatically
     userStore[index] = { ...userStore[index], ...updates };
     if (currentUser?.id === userId) {
       currentUser = userStore[index];
@@ -70,11 +73,18 @@ export const firebaseService = {
       images: data.images || [`https://picsum.photos/seed/${Math.random()}/800/800`],
       priceRange: data.priceRange || 'Contact for quote',
       isFeatured: false,
-      isApproved: true,
+      isApproved: false, // NEW PROFILES START AS PENDING
       createdAt: Date.now(),
     };
     providersStore.push(newProvider);
     return newProvider;
+  },
+
+  updateProviderProfile: async (id: string, updates: Partial<Provider>): Promise<Provider> => {
+    const index = providersStore.findIndex(p => p.id === id);
+    if (index === -1) throw new Error("Profile not found");
+    providersStore[index] = { ...providersStore[index], ...updates };
+    return providersStore[index];
   },
 
   login: async (email: string): Promise<User> => {
