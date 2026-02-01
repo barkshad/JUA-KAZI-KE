@@ -11,26 +11,29 @@ export enum ServiceCategory {
   OTHER = 'Other'
 }
 
-export interface Provider {
-  id: string;
-  userId: string;
-  name: string;
-  serviceCategory: ServiceCategory;
-  location: string;
-  description: string;
-  priceRange?: string;
-  whatsappNumber: string;
-  images: string[];
-  isFeatured: boolean;
-  isApproved: boolean;
-  createdAt: number;
-}
-
 export interface User {
   id: string;
   email: string;
   role: 'provider' | 'admin' | 'customer';
-  displayName: string;
+  fullName: string;
+  phoneNumber: string; // SOURCE OF TRUTH for WhatsApp and Calls
+  isVerified: boolean;
+  createdAt: number;
+}
+
+export interface Provider {
+  id: string;
+  userId: string; // Foreign key linking to User
+  serviceCategory: ServiceCategory;
+  location: string;
+  description: string;
+  priceRange?: string;
+  images: string[];
+  isFeatured: boolean;
+  isApproved: boolean;
+  createdAt: number;
+  // UI Helper: Joined data
+  user?: User; 
 }
 
 export interface AppState {
