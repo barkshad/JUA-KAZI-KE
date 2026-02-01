@@ -8,7 +8,6 @@ let userStore: User[] = [...MOCK_USERS];
 let currentUser: User | null = null;
 
 export const firebaseService = {
-  // Get all approved providers with their associated user account data
   getProviders: async (): Promise<Provider[]> => {
     return new Promise((res) => {
       setTimeout(() => {
@@ -17,7 +16,7 @@ export const firebaseService = {
           user: userStore.find(u => u.id === p.userId)
         }));
         res(joined);
-      }, 600);
+      }, 400);
     });
   },
 
@@ -30,13 +29,13 @@ export const firebaseService = {
     };
   },
 
-  // Step 2 of Signup: Identity Creation
-  createAccount: async (data: { fullName: string; phoneNumber: string; email: string }): Promise<User> => {
+  createAccount: async (data: { fullName: string; phoneNumber: string; email: string, password?: string }): Promise<User> => {
     const newUser: User = {
       id: 'u-' + Math.random().toString(36).substr(2, 9),
       fullName: data.fullName,
       phoneNumber: data.phoneNumber,
       email: data.email,
+      password: data.password || 'password123',
       role: 'provider',
       isVerified: false,
       createdAt: Date.now()
@@ -46,7 +45,17 @@ export const firebaseService = {
     return newUser;
   },
 
-  // Step 3 of Signup: Storefront Creation
+  updateUserAccount: async (userId: string, updates: Partial<User>): Promise<User> => {
+    const index = userStore.findIndex(u => u.id === userId);
+    if (index === -1) throw new Error("User not found");
+    
+    userStore[index] = { ...userStore[index], ...updates };
+    if (currentUser?.id === userId) {
+      currentUser = userStore[index];
+    }
+    return userStore[index];
+  },
+
   createProviderProfile: async (data: Partial<Provider>): Promise<Provider> => {
     if (!currentUser) throw new Error("No authenticated user");
     
@@ -56,10 +65,10 @@ export const firebaseService = {
       serviceCategory: data.serviceCategory || ServiceCategory.OTHER,
       location: data.location || '',
       description: data.description || '',
-      images: data.images || ['https://picsum.photos/seed/new/800/800'],
+      images: data.images || [`https://picsum.photos/seed/${Math.random()}/800/800`],
       priceRange: data.priceRange,
       isFeatured: false,
-      isApproved: true, // Auto-approved for demo
+      isApproved: true,
       createdAt: Date.now(),
     };
     providersStore.push(newProvider);

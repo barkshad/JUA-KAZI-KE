@@ -5,7 +5,6 @@ import { firebaseService } from './services/firebaseService';
 import Layout from './components/Layout';
 import ProviderCard from './components/ProviderCard';
 import { CATEGORY_ICONS, KENYAN_CITIES } from './constants';
-import { generateSearchKeywords } from './services/geminiService';
 
 const App: React.FC = () => {
   const [route, setRoute] = useState(window.location.hash || '#/');
@@ -14,7 +13,7 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedLocation, setSelectedLocation] = useState<string>('All');
-  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(firebaseService.getCurrentUser());
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -27,6 +26,7 @@ const App: React.FC = () => {
       setLoading(true);
       const data = await firebaseService.getProviders();
       setProviders(data);
+      setCurrentUser(firebaseService.getCurrentUser());
       setLoading(false);
     };
     fetchData();
@@ -34,17 +34,102 @@ const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Filter Logic
   const filteredProviders = useMemo(() => {
     return providers.filter(p => {
-      const matchesSearch = p.user?.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            p.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            p.serviceCategory.toLowerCase().includes(searchTerm.toLowerCase());
+      const nameMatch = p.user?.fullName.toLowerCase().includes(searchTerm.toLowerCase());
+      const descMatch = p.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const catMatch = p.serviceCategory.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesSearch = nameMatch || descMatch || catMatch;
       const matchesCategory = selectedCategory === 'All' || p.serviceCategory === selectedCategory;
       const matchesLocation = selectedLocation === 'All' || p.location === selectedLocation;
       return p.isApproved && matchesSearch && matchesCategory && matchesLocation;
     });
   }, [providers, searchTerm, selectedCategory, selectedLocation]);
+
+  const AccountSettingsView = () => {
+    const [formData, setFormData] = useState({
+      fullName: currentUser?.fullName || '',
+      phoneNumber: currentUser?.phoneNumber || '',
+      email: currentUser?.email || ''
+    });
+    const [saving, setSaving] = useState(false);
+
+    const handleUpdate = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!currentUser) return;
+      setSaving(true);
+      try {
+        await firebaseService.updateUserAccount(currentUser.id, formData);
+        setCurrentUser(firebaseService.getCurrentUser());
+        alert("Account details updated. Your public contact buttons have been updated automatically.");
+      } catch (err) {
+        alert("Failed to update account.");
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    if (!currentUser) return <div className="p-20 text-center text-slate-400 font-bold">Please log in to manage your account.</div>;
+
+    return (
+      <div className="max-w-2xl mx-auto py-16 px-6">
+        <h2 className="text-4xl font-black mb-2 tracking-tight">Account Settings</h2>
+        <p className="text-slate-400 mb-10 font-medium">Your phone number is your primary contact method for clients.</p>
+        
+        <form onSubmit={handleUpdate} className="space-y-6 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Full Name</label>
+            <input 
+              required 
+              className="w-full p-5 rounded-2xl bg-slate-50 border-none font-bold focus:ring-2 focus:ring-blue-600 transition-all" 
+              value={formData.fullName} 
+              onChange={e => setFormData({...formData, fullName: e.target.value})} 
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Phone Number (WhatsApp & Call Source)</label>
+            <input 
+              required 
+              className="w-full p-5 rounded-2xl bg-slate-50 border-none font-bold focus:ring-2 focus:ring-blue-600 transition-all" 
+              value={formData.phoneNumber} 
+              onChange={e => setFormData({...formData, phoneNumber: e.target.value})} 
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Email Address</label>
+            <input 
+              required 
+              type="email" 
+              className="w-full p-5 rounded-2xl bg-slate-50 border-none font-bold opacity-50" 
+              value={formData.email} 
+              disabled
+            />
+          </div>
+          <button 
+            type="submit" 
+            disabled={saving}
+            className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all disabled:bg-slate-300"
+          >
+            {saving ? 'SAVING...' : 'SAVE ACCOUNT CHANGES'}
+          </button>
+        </form>
+
+        <div className="mt-8 text-center">
+          <button 
+            onClick={async () => {
+              await firebaseService.logout();
+              window.location.hash = '#/';
+              window.location.reload();
+            }}
+            className="text-sm font-black text-red-500 hover:text-red-600 uppercase tracking-widest"
+          >
+            Logout From Jua Kazi
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const HomeView = () => (
     <div className="space-y-12 md:space-y-24 py-8 md:py-16">
@@ -80,12 +165,14 @@ const App: React.FC = () => {
             <h3 className="text-2xl font-black text-slate-900 tracking-tight">Main Categories</h3>
             <p className="text-slate-400 text-sm font-medium">Browse verified identity-linked profiles</p>
           </div>
-          <button 
-            onClick={() => window.location.hash = '#/signup'} 
-            className="text-sm font-black text-blue-600 bg-blue-50 px-6 py-3 rounded-full hover:bg-blue-100 transition-all"
-          >
-            List Your Business
-          </button>
+          {!currentUser && (
+            <button 
+              onClick={() => window.location.hash = '#/signup'} 
+              className="text-sm font-black text-blue-600 bg-blue-50 px-6 py-3 rounded-full hover:bg-blue-100 transition-all"
+            >
+              List Your Business
+            </button>
+          )}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4 md:gap-6">
           {Object.entries(ServiceCategory).slice(0, 8).map(([key, value]) => (
@@ -168,12 +255,13 @@ const App: React.FC = () => {
 
   const SignUpFlow = () => {
     const [step, setStep] = useState(1);
-    const [userData, setUserData] = useState({ fullName: '', phoneNumber: '', email: '' });
+    const [userData, setUserData] = useState({ fullName: '', phoneNumber: '', email: '', password: '' });
     const [profileData, setProfileData] = useState({ category: ServiceCategory.OTHER, location: 'Nairobi', bio: '' });
 
     const handleStep2 = async (e: React.FormEvent) => {
       e.preventDefault();
       await firebaseService.createAccount(userData);
+      setCurrentUser(firebaseService.getCurrentUser());
       setStep(3);
     };
 
@@ -184,7 +272,7 @@ const App: React.FC = () => {
         location: profileData.location,
         description: profileData.bio
       });
-      alert("Profile Created Successfully!");
+      alert("Business Profile Created! Contact info is synced from your account.");
       window.location.hash = '#/';
       window.location.reload();
     };
@@ -205,41 +293,37 @@ const App: React.FC = () => {
 
     if (step === 2) return (
       <form onSubmit={handleStep2} className="max-w-md mx-auto py-20 px-6 space-y-6">
-        <h2 className="text-3xl font-black mb-2">Create Identity</h2>
-        <p className="text-slate-400 mb-8">This information is locked to your account for trust.</p>
+        <h2 className="text-3xl font-black mb-2">1. Secure Identity</h2>
+        <p className="text-slate-400 mb-8">This phone number will be used for all WhatsApp and Call contacts.</p>
         <input required placeholder="Full Name" className="w-full p-5 rounded-2xl bg-white border font-bold" value={userData.fullName} onChange={e => setUserData({...userData, fullName: e.target.value})} />
-        <input required placeholder="Phone Number (e.g. 254700...)" className="w-full p-5 rounded-2xl bg-white border font-bold" value={userData.phoneNumber} onChange={e => setUserData({...userData, phoneNumber: e.target.value})} />
+        <input required placeholder="Phone (e.g. 254700...)" className="w-full p-5 rounded-2xl bg-white border font-bold" value={userData.phoneNumber} onChange={e => setUserData({...userData, phoneNumber: e.target.value})} />
         <input required type="email" placeholder="Email Address" className="w-full p-5 rounded-2xl bg-white border font-bold" value={userData.email} onChange={e => setUserData({...userData, email: e.target.value})} />
-        <button type="submit" className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-lg">CONTINUE</button>
+        <input required type="password" placeholder="Password" className="w-full p-5 rounded-2xl bg-white border font-bold" value={userData.password} onChange={e => setUserData({...userData, password: e.target.value})} />
+        <button type="submit" className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-lg">CONTINUE TO PROFILE</button>
       </form>
     );
 
     return (
       <form onSubmit={handleStep3} className="max-w-md mx-auto py-20 px-6 space-y-6">
-        <h2 className="text-3xl font-black mb-2">Service Profile</h2>
-        <p className="text-slate-400 mb-8">Tell customers what you do. Contact info is pulled from your account.</p>
-        <select className="w-full p-5 rounded-2xl bg-white border font-bold" value={profileData.category} onChange={e => setProfileData({...profileData, category: e.target.value as ServiceCategory})}>
-          {Object.values(ServiceCategory).map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select className="w-full p-5 rounded-2xl bg-white border font-bold" value={profileData.location} onChange={e => setProfileData({...profileData, location: e.target.value})}>
-          {KENYAN_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <textarea required placeholder="Brief Professional Bio" className="w-full p-5 rounded-2xl bg-white border font-bold h-32" value={profileData.bio} onChange={e => setProfileData({...profileData, bio: e.target.value})} />
-        <button type="submit" className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-lg">LAUNCH PROFILE</button>
+        <h2 className="text-3xl font-black mb-2">2. Business Profile</h2>
+        <p className="text-slate-400 mb-8">What services do you offer? Contact info is pre-filled from your account.</p>
+        <div className="space-y-4">
+          <select className="w-full p-5 rounded-2xl bg-white border font-bold" value={profileData.category} onChange={e => setProfileData({...profileData, category: e.target.value as ServiceCategory})}>
+            {Object.values(ServiceCategory).map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select className="w-full p-5 rounded-2xl bg-white border font-bold" value={profileData.location} onChange={e => setProfileData({...profileData, location: e.target.value})}>
+            {KENYAN_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <textarea required placeholder="Brief Professional Bio (Expert mason, professional cleaner, etc.)" className="w-full p-5 rounded-2xl bg-white border font-bold h-32" value={profileData.bio} onChange={e => setProfileData({...profileData, bio: e.target.value})} />
+        </div>
+        <button type="submit" className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-lg">LAUNCH BUSINESS</button>
       </form>
     );
   };
 
-  const renderContent = () => {
-    if (route.startsWith('#/provider/')) return <ProviderDetailView id={route.split('/').pop() || ''} />;
-    if (route === '#/signup') return <SignUpFlow />;
-    if (route === '#/explore') return <ExploreView />;
-    return <HomeView />;
-  };
-
   const ExploreView = () => (
     <div className="px-6 md:px-8 py-12">
-      <h2 className="text-4xl font-black mb-12">Explore Verified Pros</h2>
+      <h2 className="text-4xl font-black mb-12 tracking-tight">Explore Verified Pros</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
         {filteredProviders.map(p => (
           <div key={p.id} onClick={() => window.location.hash = `#/provider/${p.id}`} className="cursor-pointer">
@@ -247,10 +331,33 @@ const App: React.FC = () => {
           </div>
         ))}
       </div>
+      {filteredProviders.length === 0 && !loading && (
+        <div className="py-20 text-center text-slate-400 font-bold">No results found for your search.</div>
+      )}
     </div>
   );
 
-  return <Layout activeTab={route.includes('explore') ? 'explore' : 'home'}>{renderContent()}</Layout>;
+  const renderContent = () => {
+    if (route.startsWith('#/provider/')) return <ProviderDetailView id={route.split('/').pop() || ''} />;
+    if (route === '#/signup') return <SignUpFlow />;
+    if (route === '#/explore') return <ExploreView />;
+    if (route === '#/settings') return <AccountSettingsView />;
+    return <HomeView />;
+  };
+
+  const getActiveTab = () => {
+    if (route.includes('explore')) return 'explore';
+    if (route.includes('settings')) return 'settings';
+    if (route.includes('signup')) return 'dashboard';
+    if (route.includes('admin')) return 'admin';
+    return 'home';
+  }
+
+  return (
+    <Layout activeTab={getActiveTab()} isLoggedIn={!!currentUser}>
+      {renderContent()}
+    </Layout>
+  );
 };
 
 export default App;

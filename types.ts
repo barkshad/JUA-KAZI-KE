@@ -16,9 +16,10 @@ export interface User {
   email: string;
   role: 'provider' | 'admin' | 'customer';
   fullName: string;
-  phoneNumber: string; // SOURCE OF TRUTH for WhatsApp and Calls
+  phoneNumber: string; // SINGLE SOURCE OF TRUTH for WhatsApp and Calls
   isVerified: boolean;
   createdAt: number;
+  password?: string; // For mock authentication
 }
 
 export interface Provider {

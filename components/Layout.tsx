@@ -4,9 +4,10 @@ import React from 'react';
 interface LayoutProps {
   children: React.ReactNode;
   activeTab?: string;
+  isLoggedIn?: boolean;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab = 'home' }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTab = 'home', isLoggedIn = false }) => {
   return (
     <div className="min-h-screen flex flex-col relative pb-20 md:pb-0">
       {/* Universal Header */}
@@ -26,17 +27,26 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab = 'home' }) => {
           <nav className="hidden md:flex items-center gap-8">
             <DesktopNavItem href="#/" label="Home" active={activeTab === 'home'} />
             <DesktopNavItem href="#/explore" label="Explore" active={activeTab === 'explore'} />
-            <DesktopNavItem href="#/dashboard" label="Grow Business" active={activeTab === 'dashboard'} />
+            {isLoggedIn ? (
+              <DesktopNavItem href="#/settings" label="Account Settings" active={activeTab === 'settings'} />
+            ) : (
+              <DesktopNavItem href="#/signup" label="Grow Business" active={activeTab === 'dashboard'} />
+            )}
             <DesktopNavItem href="#/admin" label="Admin" active={activeTab === 'admin'} />
           </nav>
 
           <div className="flex gap-2">
             <a href="#/explore" className="p-2 hover:bg-slate-100 rounded-full transition-colors md:hidden">🔍</a>
-            <div className="hidden md:block">
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-full text-sm font-bold transition-all shadow-md shadow-blue-500/20 active:scale-95">
-                Join as a Pro
-              </button>
-            </div>
+            {!isLoggedIn && (
+              <div className="hidden md:block">
+                <button 
+                  onClick={() => window.location.hash = '#/signup'}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-full text-sm font-bold transition-all shadow-md shadow-blue-500/20 active:scale-95"
+                >
+                  Join as a Pro
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -52,7 +62,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab = 'home' }) => {
       <nav className="fixed bottom-4 left-4 right-4 h-16 glass border border-slate-200 rounded-3xl flex justify-around items-center px-4 z-50 md:hidden shadow-2xl shadow-slate-900/10">
         <MobileNavItem href="#/" icon="🏠" active={activeTab === 'home'} />
         <MobileNavItem href="#/explore" icon="🌍" active={activeTab === 'explore'} />
-        <MobileNavItem href="#/dashboard" icon="🛠️" active={activeTab === 'dashboard'} />
+        {isLoggedIn ? (
+          <MobileNavItem href="#/settings" icon="⚙️" active={activeTab === 'settings'} />
+        ) : (
+          <MobileNavItem href="#/signup" icon="🛠️" active={activeTab === 'dashboard'} />
+        )}
         <MobileNavItem href="#/admin" icon="🛡️" active={activeTab === 'admin'} />
       </nav>
       
