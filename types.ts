@@ -16,15 +16,15 @@ export interface User {
   email: string;
   role: 'provider' | 'admin' | 'customer';
   fullName: string;
-  phoneNumber: string; // SINGLE SOURCE OF TRUTH for WhatsApp and Calls
+  phoneNumber: string; // PUBLIC CONTACT SOURCE
   isVerified: boolean;
   createdAt: number;
-  password?: string; // For mock authentication
+  password?: string;
 }
 
 export interface Provider {
   id: string;
-  userId: string; // Foreign key linking to User
+  userId: string; // Foreign key to User
   serviceCategory: ServiceCategory;
   location: string;
   description: string;
@@ -33,7 +33,7 @@ export interface Provider {
   isFeatured: boolean;
   isApproved: boolean;
   createdAt: number;
-  // UI Helper: Joined data
+  // UI Helper: Joined data from the User record
   user?: User; 
 }
 

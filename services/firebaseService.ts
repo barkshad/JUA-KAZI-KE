@@ -2,7 +2,7 @@
 import { Provider, User, ServiceCategory } from '../types';
 import { MOCK_PROVIDERS, MOCK_USERS } from '../constants';
 
-// Simulated database
+// Simulated database state
 let providersStore: Provider[] = [...MOCK_PROVIDERS];
 let userStore: User[] = [...MOCK_USERS];
 let currentUser: User | null = null;
@@ -11,12 +11,13 @@ export const firebaseService = {
   getProviders: async (): Promise<Provider[]> => {
     return new Promise((res) => {
       setTimeout(() => {
+        // Source of Truth: Join provider listings with latest account contact data
         const joined = providersStore.map(p => ({
           ...p,
           user: userStore.find(u => u.id === p.userId)
         }));
         res(joined);
-      }, 400);
+      }, 300);
     });
   },
 
@@ -47,8 +48,9 @@ export const firebaseService = {
 
   updateUserAccount: async (userId: string, updates: Partial<User>): Promise<User> => {
     const index = userStore.findIndex(u => u.id === userId);
-    if (index === -1) throw new Error("User not found");
+    if (index === -1) throw new Error("Account not found");
     
+    // Updates to phone number here propagate to all Listings automatically
     userStore[index] = { ...userStore[index], ...updates };
     if (currentUser?.id === userId) {
       currentUser = userStore[index];
@@ -57,16 +59,16 @@ export const firebaseService = {
   },
 
   createProviderProfile: async (data: Partial<Provider>): Promise<Provider> => {
-    if (!currentUser) throw new Error("No authenticated user");
+    if (!currentUser) throw new Error("Not logged in");
     
     const newProvider: Provider = {
       id: 'p-' + Math.random().toString(36).substr(2, 9),
       userId: currentUser.id,
       serviceCategory: data.serviceCategory || ServiceCategory.OTHER,
-      location: data.location || '',
+      location: data.location || 'Nairobi',
       description: data.description || '',
       images: data.images || [`https://picsum.photos/seed/${Math.random()}/800/800`],
-      priceRange: data.priceRange,
+      priceRange: data.priceRange || 'Contact for quote',
       isFeatured: false,
       isApproved: true,
       createdAt: Date.now(),
@@ -81,7 +83,7 @@ export const firebaseService = {
       currentUser = existing;
       return existing;
     }
-    throw new Error("User not found");
+    throw new Error("Invalid credentials");
   },
 
   getCurrentUser: () => currentUser,
